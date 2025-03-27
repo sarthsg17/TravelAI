@@ -1,0 +1,30 @@
+# Core Backend
+fastapi==0.95.2
+uvicorn==0.22.0
+python-dotenv==1.0.0
+
+# Database
+SQLAlchemy==2.0.23
+psycopg2-binary==2.9.9
+
+# AI/ML
+tensorflow==2.15.0
+numpy==1.23.5  # Critical for TF 2.15 compatibility
+scikit-learn==1.2.2
+openai==0.28.1
+langchain==0.0.346
+
+# APIs
+requests==2.31.0
+googlemaps==4.10.0
+
+# Auth
+python-jose==3.3.0
+passlib==1.7.4
+
+# Real-time
+websockets==12.0
+
+# Utils
+pandas==2.0.3
+yfinance==0.2.31
