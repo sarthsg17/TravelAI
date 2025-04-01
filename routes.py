@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 from database import SessionLocal
 from models import UserPreference
 
@@ -21,42 +20,23 @@ async def home(request: Request):
 
 @router.post("/submit/")
 async def submit_preferences(
-    request: Request,  
-    username: str = Form(...),
+    request: Request,  # 🔹 Add this parameter
     destination: str = Form(...),
     duration: int = Form(...),
     budget: float = Form(...),
     interests: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    # 🔹 Check if the username already exists
-    existing_user = db.query(UserPreference).filter(UserPreference.username == username).first()
-    
-    if existing_user:
-        return templates.TemplateResponse(
-            "form.html", 
-            {"request": request, "message": "Error: Username already exists!"}
-        )
-
-    # 🔹 Add the new record if username is unique
     new_pref = UserPreference(
-        username=username,
         destination=destination,
         duration=duration,
         budget=budget,
         interests=interests,
     )
     db.add(new_pref)
+    db.commit()
     
-    try:
-        db.commit()
-        return templates.TemplateResponse(
-            "form.html", 
-            {"request": request, "message": "Preferences saved successfully!"}
-        )
-    except IntegrityError:
-        db.rollback()
-        return templates.TemplateResponse(
-            "form.html", 
-            {"request": request, "message": "Error: Username already exists!"}
-        )
+    return templates.TemplateResponse(
+        "form.html", 
+        {"request": request, "message": "Preferences saved successfully!"}
+    )
