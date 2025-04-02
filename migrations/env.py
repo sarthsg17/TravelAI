@@ -1,6 +1,8 @@
 from models import Base  # Ensure you are importing Base correctly
 from alembic import context
 from sqlalchemy import engine_from_config, pool
+from sqlalchemy.ext.asyncio import create_async_engine
+import asyncio
 
 # Import database URL
 from config import DATABASE_URL
@@ -12,19 +14,25 @@ config.set_main_option("sqlalchemy.url", DATABASE_URL)
 target_metadata = Base.metadata  # This should exist in models.py
 
 def run_migrations_online():
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section),
-        prefix="sqlalchemy.",
+    """Run migrations in async mode."""
+    connectable = create_async_engine(
+        config.get_main_option("sqlalchemy.url"),
         poolclass=pool.NullPool,
+        future=True
     )
 
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,  # Ensure metadata is passed
-        )
+    async def run_async_migrations():
+        async with connectable.connect() as connection:
+            await connection.run_sync(
+                lambda sync_conn: context.configure(
+                    connection=sync_conn,
+                    target_metadata=target_metadata,
+                    compare_type=True,
+                    include_schemas=True
+                )
+            )
+            await connection.run_sync(lambda sync_conn: context.run_migrations())
 
-        with context.begin_transaction():
-            context.run_migrations()
+    asyncio.run(run_async_migrations())
 
 run_migrations_online()

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Your Itinerary</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; }
+        .day { margin-bottom: 2rem; border: 1px solid #ddd; padding: 1rem; }
+        .activity { margin: 0.5rem 0; }
+    </style>
+</head>
+<body>
+    <h1>Trip from {{ itinerary.source }} to {{ itinerary.destination }}</h1>
+    <p>Duration: {{ itinerary.duration }} days | Budget: ₹{{ itinerary.budget }}</p>
+    
+    {% for day in itinerary.route %}
+    <div class="day">
+        <h2>Day {{ day.day }}</h2>
+        {% for activity in day.activities %}
+        <div class="activity">
+            <strong>{{ activity.time }}</strong>:
+            {{ activity.place }} - {{ activity.activity }} ({{ activity.type }})
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</body>
+</html>

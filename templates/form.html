@@ -3,39 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Travel Preferences</title>
+    <title>Travel Planner</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        h1 {
+            color: #2c3e50;
             text-align: center;
-            margin: 50px;
         }
         form {
-            max-width: 400px;
-            margin: auto;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 10px;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         input, button {
             width: 100%;
-            padding: 10px;
-            margin: 10px 0;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .hint {
+            font-size: 14px;
+            color: #666;
+            margin-top: -5px;
+            margin-bottom: 15px;
         }
     </style>
 </head>
 <body>
+    <h1>Create Your Travel Itinerary</h1>
+    <form method="POST" action="/submit/">
+        <input type="text" name="source" placeholder="From (City)" required>
+        <input type="text" name="destination" placeholder="Destination (City/Country)" required>
+        <input type="number" name="duration" placeholder="Trip Duration (Days)" min="1" required>
 
-    <h2>Travel Preferences</h2>
-    {% if message %}
-        <p class="message">{{ message }}</p>
-    {% endif %}
-    <form action="/submit/" method="post">
-        <input type="text" name="destination" placeholder="Destination" required>
-        <input type="number" name="duration" placeholder="Duration (days)" required>
-        <input type="number" name="budget" placeholder="Budget ($)" required>
-        <input type="text" name="interests" placeholder="Interests (comma-separated)" required>
-        <button type="submit">Submit</button>
+        <input type="number" name="budget" placeholder="Budget (in ₹)" min="500"  max="50000" required>
+        <input type="text" name="interests" placeholder="Your Interests (comma separated)" required>
+        <p class="hint">Example: museums, hiking, food, shopping</p>
+        <button type="submit">Generate Itinerary</button>
     </form>
 </body>
 </html>

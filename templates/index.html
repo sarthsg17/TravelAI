@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Travel Itinerary</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .day-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .activity {
+            margin: 15px 0;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            background: #f8fff8;
+        }
+        .time {
+            font-weight: bold;
+            color: #2c3e50;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .place {
+            font-size: 1.2em;
+            color: #1a5276;
+            margin: 5px 0;
+        }
+        .type {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-right: 10px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2em;
+        }
+        .spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error {
+            color: #c0392b;
+            background: #fadbd8;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .retry-btn {
+            padding: 10px 20px;
+            margin-top: 15px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Your Personalized Itinerary</h1>
+        <h2 id="destination-header">Loading...</h2>
+        <p id="trip-duration"></p>
+    </div>
+    
+    <div id="itinerary-container">
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Creating your perfect travel plan...</p>
+        </div>
+    </div>
+
+    <script>
+        async function loadItinerary() {
+            const container = document.getElementById("itinerary-container");
+            
+            try {
+                // Show loading state
+                container.innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Creating your perfect travel plan...</p>
+                    </div>`;
+                
+                // Get user ID from URL
+                const pathParts = window.location.pathname.split('/').filter(part => part !== '');
+                const userId = pathParts[pathParts.length - 1];
+                
+                if (!userId || isNaN(userId)) {
+                    throw new Error("Invalid trip ID");
+                }
+                
+                // Fetch itinerary data
+                const response = await fetch(`/generate-itinerary/${userId}`);
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => null);
+                    throw new Error(errorData?.detail || "Failed to load itinerary");
+                }
+                
+                const itinerary = await response.json();
+                
+                // Update header
+                document.getElementById("destination-header").textContent = 
+                    `Trip to ${itinerary.destination}`;
+                document.getElementById("trip-duration").textContent = 
+                    `${itinerary.duration} day${itinerary.duration > 1 ? 's' : ''} itinerary`;
+                
+                // Build itinerary HTML
+                let html = '';
+                itinerary.route.forEach(day => {
+                    html += `
+                    <div class="day-card">
+                        <h2>Day ${day.day}</h2>
+                        ${day.activities.map(activity => `
+                            <div class="activity">
+                                <span class="type">${activity.type}</span>
+                                <span class="time">${activity.time}</span>
+                                <div class="place">${activity.place}</div>
+                                <p>${activity.activity}</p>
+                            </div>
+                        `).join('')}
+                    </div>`;
+                });
+                
+                container.innerHTML = html;
+                
+            } catch (error) {
+                console.error("Error:", error);
+                container.innerHTML = `
+                    <div class="error">
+                        <h3>Error loading itinerary</h3>
+                        <p>${error.message}</p>
+                        <button class="retry-btn" onclick="loadItinerary()">
+                            Try Again
+                        </button>
+                    </div>`;
+            }
+        }
+
+        // Start loading when page opens
+        document.addEventListener('DOMContentLoaded', loadItinerary);
+    </script>
+</body>
+</html>
