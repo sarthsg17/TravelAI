@@ -5,67 +5,68 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import UserPreference
-from config import get_db
-import time
+from config import get_db, GOOGLE_API_KEY
 from fastapi.templating import Jinja2Templates
+import urllib.parse
+import random
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter()
 
-FOURSQUARE_API_KEY = "fsq3Uz0C6s6XLGU4xB+lQOfNa0Q/BPxiV5edWxVY9wpZV/I="  # Keep secure in production
-
-class NominatimLimiter:
-    last_request = 0
-    
-    @classmethod
-    async def wait(cls):
-        elapsed = time.time() - cls.last_request
-        if elapsed < 1:
-            await asyncio.sleep(1 - elapsed)
-        cls.last_request = time.time()
-
-async def get_coordinates(location: str):
-    await NominatimLimiter.wait()
+# Get coordinates using Google Maps Geocoding API
+async def get_coordinates_google(location: str):
     async with httpx.AsyncClient() as client:
-        url = f"https://nominatim.openstreetmap.org/search?q={location}&format=json"
-        headers = {'User-Agent': 'TravelAI/1.0'}
-        response = await client.get(url, headers=headers)
-        if response.status_code != 200 or not response.json():
-            return None
-        data = response.json()[0]
-        return float(data['lat']), float(data['lon'])
+        url = f"https://maps.googleapis.com/maps/api/geocode/json?address={urllib.parse.quote(location)}&key={GOOGLE_API_KEY}"
+        response = await client.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            if data["results"]:
+                loc = data["results"][0]["geometry"]["location"]
+                return loc["lat"], loc["lng"]
+    return None
 
-async def get_places(lat: float, lon: float, interest: str):
-    overpass_url = "https://overpass-api.de/api/interpreter"
-    query = f"""
-    [out:json];
-    (
-      node["tourism"](around:5000,{lat},{lon});
-      node["amenity"~"{interest}"](around:5000,{lat},{lon});
-      way["tourism"](around:5000,{lat},{lon});
-      way["amenity"~"{interest}"](around:5000,{lat},{lon});
-    );
-    out center;
-    """
+# Get places (attractions, restaurants, activities, accommodations)
+async def get_google_places(lat, lon, keyword, budget, place_type=None):
     async with httpx.AsyncClient() as client:
-        response = await client.get(overpass_url, params={'data': query})
-        if response.status_code != 200:
-            return []
-        data = response.json()
-        return [element['tags']['name'] for element in data.get('elements', []) if 'tags' in element and 'name' in element['tags']]
+        radius = 5000
+        price_level = 1 if budget < 1500 else 2 if budget < 3000 else 4
+        url = (
+            f"https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+            f"?location={lat},{lon}&radius={radius}&keyword={urllib.parse.quote(keyword)}"
+            f"&minprice=0&maxprice={price_level}&key={GOOGLE_API_KEY}"
+        )
+        if place_type:
+            url += f"&type={place_type}"
+        
+        response = await client.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get("results", [])
+            if not results:
+                print(f"No results found for keyword: {keyword}, type: {place_type} at {lat}, {lon}")
+            sorted_places = sorted(
+                results,
+                key=lambda x: x.get("rating", 0),
+                reverse=True
+            )
+            return [place["name"] for place in sorted_places if "name" in place]
+        else:
+            print(f"Google Places API Error: {response.status_code}, {response.text}")
+    return []
 
-async def get_foursquare_restaurants(lat: float, lon: float, budget: int):
-    price_range = "1,2" if budget < 1500 else "2,3" if budget < 3000 else "3,4"
-    url = f"https://api.foursquare.com/v3/places/search?ll={lat},{lon}&categories=13000&limit=3&price={price_range}"
-    headers = {"Accept": "application/json", "Authorization": FOURSQUARE_API_KEY}
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers)
-            if response.status_code == 200:
-                return [place["name"] for place in response.json().get("results", []) if "name" in place]
-    except Exception as e:
-        print(f"Foursquare API error: {e}")
-    return [f"Local {budget}-budget restaurant"]
+
+# Get directions between source and destination using Google Directions API
+async def get_transport_mode(source, destination):
+    async with httpx.AsyncClient() as client:
+        url = f"https://maps.googleapis.com/maps/api/directions/json?origin={urllib.parse.quote(source)}&destination={urllib.parse.quote(destination)}&key={GOOGLE_API_KEY}"
+        response = await client.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            if data["routes"]:
+                steps = data["routes"][0]["legs"][0].get("steps", [])
+                modes = list(set([step["travel_mode"] for step in steps if "travel_mode" in step]))
+                return ", ".join(modes)
+    return "Data not available"
 
 @router.post("/submit/")
 async def submit_preferences(
@@ -85,7 +86,6 @@ async def submit_preferences(
         await db.refresh(pref)
         return RedirectResponse(url=f"/itinerary/{pref.id}", status_code=303)
     except Exception as e:
-        print(f"Error saving preferences: {e}")
         await db.rollback()
         return templates.TemplateResponse("error.html", {"request": request, "message": "Database error. Please try again."})
 
@@ -107,32 +107,53 @@ async def generate_itinerary(user_id: int, db: AsyncSession = Depends(get_db)):
         if not pref:
             raise HTTPException(status_code=404, detail="User not found")
         
-        interests = [i.strip() for i in pref.interests.split(',') if i.strip()]
-        interests = interests if interests else ["sightseeing"]
-        
-        coords = await get_coordinates(pref.destination)
+        coords = await get_coordinates_google(pref.destination)
         if not coords:
-            raise HTTPException(status_code=400, detail="Location not found")
+            raise HTTPException(status_code=400, detail="Invalid destination")
         lat, lon = coords
-        
-        itinerary = {"destination": pref.destination, "duration": pref.duration, "budget": pref.budget, "route": []}
-        
+
+        interests = [i.strip() for i in pref.interests.split(',') if i.strip()]
+
+        itinerary = {
+            "destination": pref.destination,
+            "duration": pref.duration,
+            "budget": pref.budget,
+            "route": [],
+            "transport_mode": await get_transport_mode(pref.source, pref.destination)
+        }
+
         for day in range(1, pref.duration + 1):
-            interest_idx = day % len(interests) if interests else 0
-            attraction, restaurants, activity = await asyncio.gather(
-                get_places(lat, lon, "attraction"),
-                get_foursquare_restaurants(lat, lon, pref.budget),
-                get_places(lat, lon, interests[interest_idx])
-            )
+            interest = interests[(day - 1) % len(interests)] if interests else "sightseeing"
             
+            # Fetch all lists concurrently
+            places_task = get_google_places(lat, lon, "tourist attraction", pref.budget, place_type="tourist_attraction")
+            food_task = get_google_places(lat, lon, "restaurant", pref.budget, place_type="restaurant")
+            activity_task = get_google_places(lat, lon, interest, pref.budget)
+            hotel_task = get_google_places(lat, lon, "hotel", pref.budget, place_type="lodging")
+
+            all_places = await asyncio.gather(places_task, food_task, activity_task, hotel_task)
+            attraction_list, restaurant_list, activity_list, hotel_list = all_places
+
+            # Shuffle and pick a different place each day (or cycle through top results)
+            def pick_item(place_list, day_index, default_label):
+                if len(place_list) > day_index:
+                    return place_list[day_index]
+                elif place_list:
+                    return random.choice(place_list)
+                return f"No {default_label} found"
+
+
             day_plan = {
-                "day": day,
-                "activities": [
-                    {"time": "9:00 AM", "place": attraction[0] if attraction else "Popular attraction", "activity": "Sightseeing", "type": "Attraction"},
-                    {"time": "12:00 PM", "place": restaurants[0] if restaurants else "Local restaurant", "activity": "Lunch", "type": "Dining", "budget_level": pref.budget},
-                    {"time": "2:00 PM", "place": activity[0] if activity else f"{interests[interest_idx]} spot", "activity": interests[interest_idx].capitalize(), "type": "Activity"}
-                ]
-            }
+    "day": day,
+    "activities": [
+        {"time": "9:00 AM", "place": pick_item(attraction_list, day - 1, "tourist attraction"), "activity": "Sightseeing"},
+        {"time": "12:00 PM", "place": pick_item(restaurant_list, day - 1, "restaurant"), "activity": "Lunch"},
+        {"time": "3:00 PM", "place": pick_item(activity_list, day - 1, interest), "activity": interest.capitalize()},
+        {"time": "7:00 PM", "place": pick_item(hotel_list, day - 1, "hotel"), "activity": "Accommodation"}
+    ]
+}
+
+
             itinerary["route"].append(day_plan)
         
         return itinerary
