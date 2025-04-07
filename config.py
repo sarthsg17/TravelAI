@@ -1,30 +1,20 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
+# config.py
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy.pool import NullPool
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
-# Your NeonDB connection string
-DATABASE_URL = "postgresql+asyncpg://neondb_owner:npg_o67wFIalfbsc@ep-withered-union-a1fizbkz-pooler.ap-southeast-1.aws.neon.tech/neondb?ssl=require"
-engine = create_async_engine(
-    DATABASE_URL,
-    poolclass=NullPool,
-    echo=False  # Remove in production
-)
+DATABASE_URL = "sqlite+aiosqlite:///./test.db"  # Removed sslmode
 
-AsyncSessionLocal = sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False
-)
-
+# SQLAlchemy setup
+engine = create_async_engine(DATABASE_URL, echo=True)
+SessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
 
+# For dependency injection
 async def get_db():
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+    async with SessionLocal() as session:
+        yield session
+
+# Add your Google API key
 
 GOOGLE_API_KEY = "AIzaSyCGr2Pv8_aV9uxAODgutLdYGfqRdZWaYk8"

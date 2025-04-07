@@ -3,24 +3,53 @@
 <head>
     <title>Your Itinerary</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; }
-        .day { margin-bottom: 2rem; border: 1px solid #ddd; padding: 1rem; }
-        .activity { margin: 0.5rem 0; }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .day {
+            margin-bottom: 2rem;
+            border: 1px solid #ddd;
+            padding: 1rem;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .plan-item {
+            margin: 0.5rem 0;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
     </style>
 </head>
 <body>
     <h1>Trip from {{ itinerary.source }} to {{ itinerary.destination }}</h1>
-    <p>Duration: {{ itinerary.duration }} days | Budget: ₹{{ itinerary.budget }}</p>
-    
+    <p><strong>Start Date:</strong> {{ itinerary.start_date }}</p>
+    <p><strong>Duration:</strong> {{ itinerary.duration }} days</p>
+    <p><strong>Budget:</strong> ₹{{ itinerary.budget }}</p>
+    <p><strong>Transport Mode:</strong> {{ itinerary.transport_mode }}</p>
+
+    <p><strong>Food Preferences:</strong>
+        {% if itinerary.food_preferences.halal %} Halal{% endif %}
+        {% if itinerary.food_preferences.vegetarian %}
+            {% if itinerary.food_preferences.halal %}, {% endif %}
+            Vegetarian
+        {% endif %}
+        {% if not itinerary.food_preferences.halal and not itinerary.food_preferences.vegetarian %}
+            None
+        {% endif %}
+    </p>
+
     {% for day in itinerary.route %}
     <div class="day">
-        <h2>Day {{ day.day }}</h2>
-        {% for activity in day.activities %}
-        <div class="activity">
-            <strong>{{ activity.time }}</strong>:
-            {{ activity.place }} - {{ activity.activity }} ({{ activity.type }})
-        </div>
-        {% endfor %}
+        <h2>{{ day.day }}</h2>
+        <ul>
+            {% for item in day.plan %}
+            <li class="plan-item">{{ item }}</li>
+            {% endfor %}
+        </ul>
     </div>
     {% endfor %}
 </body>

@@ -26,8 +26,9 @@ async def home(request: Request):
 
 @app.on_event("startup")
 async def startup():
-    async with config.engine.begin() as conn:
-        await conn.run_sync(config.Base.metadata.create_all)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled error: {str(exc)}", exc_info=True)

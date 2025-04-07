@@ -9,6 +9,7 @@ from config import get_db, GOOGLE_API_KEY
 from fastapi.templating import Jinja2Templates
 import urllib.parse
 import random
+from typing import Optional
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter()
@@ -68,6 +69,7 @@ async def get_transport_mode(source, destination):
                 return ", ".join(modes)
     return "Data not available"
 
+
 @router.post("/submit/")
 async def submit_preferences(
     request: Request,
@@ -76,18 +78,37 @@ async def submit_preferences(
     duration: int = Form(...),
     budget: str = Form(...),
     interests: str = Form(...),
+    halal: Optional[bool] = Form(False),
+    vegetarian: Optional[bool] = Form(False),
+    travel_date: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
     try:
         budget_int = int(budget)
-        pref = UserPreference(source=source, destination=destination, duration=duration, budget=budget_int, interests=interests)
+
+        pref = UserPreference(
+            source=source,
+            destination=destination,
+            duration=duration,
+            budget=budget_int,
+            interests=interests,
+            halal=halal,
+            vegetarian=vegetarian,
+            travel_date=travel_date
+        )
+
         db.add(pref)
         await db.commit()
         await db.refresh(pref)
         return RedirectResponse(url=f"/itinerary/{pref.id}", status_code=303)
+
     except Exception as e:
         await db.rollback()
-        return templates.TemplateResponse("error.html", {"request": request, "message": "Database error. Please try again."})
+        print("Database Error:", e)
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "message": "Database error. Please try again."
+        })
 
 @router.get("/itinerary/{user_id}", name="show_itinerary")
 async def show_itinerary(request: Request, user_id: int, db: AsyncSession = Depends(get_db)):
@@ -106,57 +127,63 @@ async def generate_itinerary(user_id: int, db: AsyncSession = Depends(get_db)):
         pref = result.scalars().first()
         if not pref:
             raise HTTPException(status_code=404, detail="User not found")
-        
+
         coords = await get_coordinates_google(pref.destination)
         if not coords:
             raise HTTPException(status_code=400, detail="Invalid destination")
         lat, lon = coords
 
-        interests = [i.strip() for i in pref.interests.split(',') if i.strip()]
+        interests = [i.strip() for i in pref.interests.split(',') if i.strip()] or ["sightseeing"]
 
         itinerary = {
             "destination": pref.destination,
+            "start_date": str(pref.travel_date),
             "duration": pref.duration,
-            "budget": pref.budget,
+            "budget": f"${pref.budget}",
+            "food_preferences": {
+                "halal": bool(pref.halal),
+                "vegetarian": bool(pref.vegetarian)
+            },
             "route": [],
             "transport_mode": await get_transport_mode(pref.source, pref.destination)
         }
 
         for day in range(1, pref.duration + 1):
-            interest = interests[(day - 1) % len(interests)] if interests else "sightseeing"
-            
-            # Fetch all lists concurrently
-            places_task = get_google_places(lat, lon, "tourist attraction", pref.budget, place_type="tourist_attraction")
-            food_task = get_google_places(lat, lon, "restaurant", pref.budget, place_type="restaurant")
+            interest = interests[(day - 1) % len(interests)]
+
+            attraction_task = get_google_places(lat, lon, "tourist attraction", pref.budget, place_type="tourist_attraction")
+            restaurant_task = get_google_places(lat, lon, "restaurant", pref.budget, place_type="restaurant")
             activity_task = get_google_places(lat, lon, interest, pref.budget)
             hotel_task = get_google_places(lat, lon, "hotel", pref.budget, place_type="lodging")
 
-            all_places = await asyncio.gather(places_task, food_task, activity_task, hotel_task)
-            attraction_list, restaurant_list, activity_list, hotel_list = all_places
+            attraction_list, restaurant_list, activity_list, hotel_list = await asyncio.gather(
+                attraction_task, restaurant_task, activity_task, hotel_task
+            )
 
-            # Shuffle and pick a different place each day (or cycle through top results)
-            def pick_item(place_list, day_index, default_label):
-                if len(place_list) > day_index:
-                    return place_list[day_index]
-                elif place_list:
-                    return random.choice(place_list)
-                return f"No {default_label} found"
+            def pick(place_list, fallback):
+                return random.choice(place_list) if place_list else f"No {fallback} found"
 
+            food_desc = []
+            if pref.halal:
+                food_desc.append("Halal-friendly")
+            if pref.vegetarian:
+                food_desc.append("Vegetarian")
 
             day_plan = {
-    "day": day,
-    "activities": [
-        {"time": "9:00 AM", "place": pick_item(attraction_list, day - 1, "tourist attraction"), "activity": "Sightseeing"},
-        {"time": "12:00 PM", "place": pick_item(restaurant_list, day - 1, "restaurant"), "activity": "Lunch"},
-        {"time": "3:00 PM", "place": pick_item(activity_list, day - 1, interest), "activity": interest.capitalize()},
-        {"time": "7:00 PM", "place": pick_item(hotel_list, day - 1, "hotel"), "activity": "Accommodation"}
-    ]
-}
-
+                "day": f"Day {day}",
+                "plan": [
+                    pick(attraction_list, "tourist attraction"),
+                    f"Lunch spot: {pick(restaurant_list, 'restaurant')}" + (f" ({', '.join(food_desc)})" if food_desc else ""),
+                    f"Activity: {pick(activity_list, interest)} ({interest.capitalize()})",
+                    f"Stay: {pick(hotel_list, 'hotel')}"
+                ]
+            }
 
             itinerary["route"].append(day_plan)
-        
+
         return itinerary
+
     except Exception as e:
         print(f"Error generating itinerary: {str(e)}")
         raise HTTPException(status_code=500, detail="Itinerary generation failed")
+
