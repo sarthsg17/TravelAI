@@ -22,34 +22,55 @@
         h1, h2 {
             color: #2c3e50;
         }
+        .category {
+            font-weight: bold;
+            color: #3498db;
+        }
     </style>
 </head>
 <body>
-    <h1>Trip from {{ itinerary.source }} to {{ itinerary.destination }}</h1>
-    <p><strong>Start Date:</strong> {{ itinerary.start_date }}</p>
+    <h1>Trip to {{ itinerary.destination }}</h1>
     <p><strong>Duration:</strong> {{ itinerary.duration }} days</p>
-    <p><strong>Budget:</strong> ₹{{ itinerary.budget }}</p>
-    <p><strong>Transport Mode:</strong> {{ itinerary.transport_mode }}</p>
 
-    <p><strong>Food Preferences:</strong>
-        {% if itinerary.food_preferences.halal %} Halal{% endif %}
-        {% if itinerary.food_preferences.vegetarian %}
-            {% if itinerary.food_preferences.halal %}, {% endif %}
-            Vegetarian
-        {% endif %}
-        {% if not itinerary.food_preferences.halal and not itinerary.food_preferences.vegetarian %}
-            None
-        {% endif %}
-    </p>
-
-    {% for day in itinerary.route %}
+    {% for day in itinerary.days %}
     <div class="day">
         <h2>{{ day.day }}</h2>
-        <ul>
-            {% for item in day.plan %}
-            <li class="plan-item">{{ item }}</li>
-            {% endfor %}
-        </ul>
+        
+        <div class="plan-item">
+            <span class="category">Attractions:</span>
+            <ul>
+                {% for attraction in day.attractions %}
+                <li>{{ attraction }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <div class="plan-item">
+            <span class="category">Dining Options:</span>
+            <ul>
+                {% for dining in day.dining %}
+                <li>{{ dining }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <div class="plan-item">
+            <span class="category">Activities:</span>
+            <ul>
+                {% for activity in day.activities %}
+                <li>{{ activity }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <div class="plan-item">
+            <span class="category">Accommodations:</span>
+            <ul>
+                {% for hotel in day.hotels %}
+                <li>{{ hotel }}</li>
+                {% endfor %}
+            </ul>
+        </div>
     </div>
     {% endfor %}
 </body>

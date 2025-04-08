@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, Date
-from config import Base
+from database import Base
 
 class UserPreference(Base):
     __tablename__ = "user_preferences"
