@@ -9,12 +9,9 @@ from config import get_db, GOOGLE_API_KEY
 from fastapi.templating import Jinja2Templates
 import urllib.parse
 import random
-from typing import Optional
+from typing import Optional, List, Dict
 import logging
 from schemas import ItineraryResponse, ItineraryDay
-
-templates = Jinja2Templates(directory="templates")
-router = APIRouter()
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -27,6 +24,7 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(messag
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
+# Initialize templates once
 templates = Jinja2Templates(directory="templates")
 router = APIRouter()
 
@@ -42,15 +40,12 @@ async def get_coordinates_google(location: str):
                 return loc["lat"], loc["lng"]
     return None
 
-# Get places (attractions, restaurants, activities, accommodations)
-async def get_google_places(lat: float, lon: float, keyword: str, budget: int, place_type: str = None) -> list:
+# Get places with their place_ids for further details
+async def get_google_places(lat: float, lon: float, keyword: str, budget: int, place_type: str = None) -> List[Dict]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             # Smarter radius calculation based on urban/rural areas
             radius = 50000 if "tourist" in keyword else 20000
-            
-            # Better budget mapping
-            price_level = min(max(budget//2000, 4), 1)  # 1-4 scale
             
             # Base parameters
             params = {
@@ -89,11 +84,18 @@ async def get_google_places(lat: float, lon: float, keyword: str, budget: int, p
                 )
                 data = response.json()
             
-            # Process results
+            # Process results - return dict with place info
             if data.get("status") == "OK":
                 return [
-                    place["name"] for place in data.get("results", [])
-                    if place.get("business_status") == "OPERATIONAL"
+                    {
+                        "name": place["name"],
+                        "place_id": place.get("place_id", ""),
+                        "price_level": place.get("price_level", 0),
+                        "rating": place.get("rating", 0),
+                        "location": place.get("geometry", {}).get("location", {})
+                    }
+                    for place in data.get("results", [])
+                    if place.get("business_status", "OPERATIONAL") == "OPERATIONAL"
                 ][:15]  # Return top 15 results
             
             return []
@@ -102,22 +104,32 @@ async def get_google_places(lat: float, lon: float, keyword: str, budget: int, p
         logger.error(f"Google API error: {str(e)}")
         return []
     
-async def get_osm_places(lat: float, lon: float, query: str) -> list:
+async def get_osm_places(lat: float, lon: float, query: str) -> List[Dict]:
     try:
         async with httpx.AsyncClient() as client:
             url = f"https://nominatim.openstreetmap.org/search.php?q={query}+near+{lat},{lon}&format=jsonv2"
             headers = {"User-Agent": "TravelItineraryApp/1.0"}
             response = await client.get(url, headers=headers)
-            return [item["display_name"] for item in response.json()[:10]]
-    except Exception:
+            return [
+                {
+                    "name": item["display_name"],
+                    "place_id": item.get("osm_id", ""),
+                    "price_level": 0,  # OSM doesn't provide price level
+                    "rating": 0,
+                    "location": {"lat": float(item.get("lat", lat)), "lng": float(item.get("lon", lon))}
+                }
+                for item in response.json()[:10]
+            ]
+    except Exception as e:
+        logger.error(f"OSM API error: {str(e)}")
         return []
 
-async def get_foursquare_places(lat: float, lon: float, category: str) -> list:
+async def get_foursquare_places(lat: float, lon: float, category: str) -> List[Dict]:
     try:
         async with httpx.AsyncClient() as client:
             url = "https://api.foursquare.com/v3/places/search"
             headers = {
-                "Authorization": "fsq3Uz0C6s6XLGU4xB+lQOfNa0Q/BPxiV5edWxVY9wpZV/I= ",  # Get free key from developer.foursquare.com
+                "Authorization": "fsq3Uz0C6s6XLGU4xB+lQOfNa0Q/BPxiV5edWxVY9wpZV/I=",
                 "Accept": "application/json"
             }
             params = {
@@ -126,24 +138,102 @@ async def get_foursquare_places(lat: float, lon: float, category: str) -> list:
                 "limit": 10
             }
             response = await client.get(url, headers=headers, params=params)
-            return [item["name"] for item in response.json().get("results", [])]
-    except Exception:
+            data = response.json()
+            return [
+                {
+                    "name": item.get("name", ""),
+                    "place_id": item.get("fsq_id", ""),
+                    "price_level": int(item.get("price", 0)),
+                    "rating": item.get("rating", 0) / 2 if item.get("rating") else 0,  # Convert to 5-star scale
+                    "location": item.get("geocodes", {}).get("main", {"lat": lat, "lng": lon})
+                }
+                for item in data.get("results", [])
+            ]
+    except Exception as e:
+        logger.error(f"Foursquare API error: {str(e)}")
         return []
 
+# Get directions between two points and calculate distance and time
+async def get_directions(origin_lat, origin_lng, dest_lat, dest_lng, mode="driving"):
+    try:
+        async with httpx.AsyncClient() as client:
+            url = "https://maps.googleapis.com/maps/api/directions/json"
+            params = {
+                "origin": f"{origin_lat},{origin_lng}",
+                "destination": f"{dest_lat},{dest_lng}",
+                "mode": mode,
+                "key": GOOGLE_API_KEY
+            }
+            response = await client.get(url, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("status") == "OK" and data.get("routes"):
+                    leg = data["routes"][0]["legs"][0]
+                    return {
+                        "distance": leg["distance"]["value"] / 1000,  # km
+                        "duration": leg["duration"]["value"] / 60,    # minutes
+                        "transport_mode": mode
+                    }
+        return {"distance": 0, "duration": 0, "transport_mode": mode}
+    except Exception as e:
+        logger.error(f"Error getting directions: {str(e)}")
+        return {"distance": 0, "duration": 0, "transport_mode": mode}
 
-# Get directions between source and destination using Google Directions API
-async def get_transport_mode(source, destination):
-    async with httpx.AsyncClient() as client:
-        url = f"https://maps.googleapis.com/maps/api/directions/json?origin={urllib.parse.quote(source)}&destination={urllib.parse.quote(destination)}&key={GOOGLE_API_KEY}"
-        response = await client.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            if data["routes"]:
-                steps = data["routes"][0]["legs"][0].get("steps", [])
-                modes = list(set([step["travel_mode"] for step in steps if "travel_mode" in step]))
-                return ", ".join(modes)
-    return "Data not available"
+# Get place details using Google Places API
+async def get_place_details(place_id: str) -> dict:
+    try:
+        async with httpx.AsyncClient() as client:
+            url = f"https://maps.googleapis.com/maps/api/place/details/json"
+            params = {
+                "place_id": place_id,
+                "fields": "name,formatted_address,price_level,rating,types,website,opening_hours,geometry",
+                "key": GOOGLE_API_KEY
+            }
+            response = await client.get(url, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("status") == "OK":
+                    return data.get("result", {})
+    except Exception as e:
+        logger.error(f"Error fetching place details: {str(e)}")
+    return {}
 
+# Calculate costs based on place type and available data
+def calculate_place_cost(place_info: dict, place_type: str, budget_level: int) -> float:
+    # For explicit price levels from API data
+    price_level = place_info.get("price_level", 0)
+    
+    # Adjust price level if not available based on budget_level
+    if price_level == 0:
+        # Scale from 1-5 budget levels to 1-4 price levels
+        price_level = max(1, min(4, round(budget_level * 0.8)))
+    
+    # Base costs by category and price level
+    cost_matrix = {
+        "attraction": {0: 100, 1: 150, 2: 300, 3: 500, 4: 1000},
+        "restaurant": {0: 150, 1: 250, 2: 500, 3: 1000, 4: 2000},
+        "hotel": {0: 1000, 1: 1500, 2: 3000, 3: 5000, 4: 10000},
+        "activity": {0: 200, 1: 300, 2: 600, 3: 1000, 4: 2000}
+    }
+    
+    # Get appropriate category
+    if place_type not in cost_matrix:
+        place_type = "attraction"  # Default category
+    
+    # Get cost from matrix using price level
+    return cost_matrix[place_type][price_level]
+
+# Calculate transportation cost
+def calculate_transport_cost(distance_km: float, mode: str = "driving") -> float:
+    # Cost per km by mode
+    cost_per_km = {
+        "driving": 10,   # ₹10/km for car
+        "transit": 5,    # ₹5/km for public transport
+        "walking": 0,    # Free for walking
+        "bicycling": 2   # ₹2/km for bike rental
+    }
+    
+    return distance_km * cost_per_km.get(mode, 10)  # Default to driving cost
 
 @router.post("/submit/")
 async def submit_preferences(
@@ -179,7 +269,7 @@ async def submit_preferences(
 
     except Exception as e:
         await db.rollback()
-        print("Database Error:", e)
+        logger.error(f"Database Error: {str(e)}", exc_info=True)
         return templates.TemplateResponse("error.html", {
             "request": request,
             "message": "Database error. Please try again."
@@ -188,221 +278,243 @@ async def submit_preferences(
 @router.get("/itinerary/{user_id}", name="show_itinerary")
 async def show_itinerary(request: Request, user_id: int, db: AsyncSession = Depends(get_db)):
     try:
+        # Get user preferences first to access the source
+        result = await db.execute(select(UserPreference).where(UserPreference.id == user_id))
+        pref = result.scalars().first()
+        if not pref:
+            raise HTTPException(status_code=404, detail="User not found")
+            
         itinerary = await generate_itinerary(user_id, db)
-        itinerary_dict = itinerary.dict()
-        return templates.TemplateResponse("itinerary.html", {"request": request, "itinerary": itinerary})
+        return templates.TemplateResponse("itinerary.html", {
+            "request": request, 
+            "itinerary": itinerary,
+            "source": pref.source  # Pass source to the template
+        })
     except HTTPException as he:
         raise he
     except Exception as e:
         logger.error(f"Error displaying itinerary: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to display itinerary: {str(e)}")
-    
+
 @router.get("/generate-itinerary/{user_id}")
-# async def generate_itinerary(user_id: int, db: AsyncSession = Depends(get_db)):
-#     try:
-#         result = await db.execute(select(UserPreference).where(UserPreference.id == user_id))
-#         pref = result.scalars().first()
-#         if not pref:
-#             raise HTTPException(status_code=404, detail="User not found")
-
-#         coords = await get_coordinates_google(pref.destination)
-#         if not coords:
-#             raise HTTPException(status_code=400, detail="Invalid destination")
-#         lat, lon = coords
-
-#         interests = [i.strip() for i in pref.interests.split(',') if i.strip()] or ["sightseeing"]
-
-#         itinerary = {
-#             "destination": pref.destination,
-#             "start_date": str(pref.travel_date),
-#             "duration": pref.duration,
-#             "budget": f"${pref.budget}",
-#             "food_preferences": {
-#                 "halal": bool(pref.halal),
-#                 "vegetarian": bool(pref.vegetarian)
-#             },
-#             "route": [],
-#             "transport_mode": await get_transport_mode(pref.source, pref.destination)
-#         }
-
-#         for day in range(1, pref.duration + 1):
-#             interest = interests[(day - 1) % len(interests)]
-
-#             attraction_task = get_google_places(lat, lon, "tourist attraction", pref.budget, place_type="tourist_attraction")
-#             restaurant_task = get_google_places(lat, lon, "restaurant", pref.budget, place_type="restaurant")
-#             activity_task = get_google_places(lat, lon, interest, pref.budget)
-#             hotel_task = get_google_places(lat, lon, "hotel", pref.budget, place_type="lodging")
-
-#             attraction_list, restaurant_list, activity_list, hotel_list = await asyncio.gather(
-#                 attraction_task, restaurant_task, activity_task, hotel_task
-#             )
-
-#             def pick(place_list, fallback):
-#                 return random.choice(place_list) if place_list else f"No {fallback} found"
-
-#             food_desc = []
-#             if pref.halal:
-#                 food_desc.append("Halal-friendly")
-#             if pref.vegetarian:
-#                 food_desc.append("Vegetarian")
-
-#             day_plan = {
-#                 "day": f"Day {day}",
-#                 "plan": [
-#                     pick(attraction_list, "tourist attraction"),
-#                     f"Lunch spot: {pick(restaurant_list, 'restaurant')}" + (f" ({', '.join(food_desc)})" if food_desc else ""),
-#                     f"Activity: {pick(activity_list, interest)} ({interest.capitalize()})",
-#                     f"Stay: {pick(hotel_list, 'hotel')}"
-#                 ]
-#             }
-
-#             itinerary["route"].append(day_plan)
-
-#         return itinerary
 async def generate_itinerary(user_id: int, db: AsyncSession = Depends(get_db)):
     try:
-        # Fetch user preferences
         result = await db.execute(select(UserPreference).where(UserPreference.id == user_id))
         pref = result.scalars().first()
         if not pref:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Get coordinates with fallback to Golden Temple if needed
-        coords = await get_coordinates_google(pref.destination) or (31.6200, 74.8765)
-        lat, lon = coords
-
-        # Process interests with fallback to sightseeing
+        # Calculate budget level (1-5)
+        budget_level = min(5, max(1, pref.budget // 5000))
+        
+        # Get coordinates for destination
+        dest_coords = await get_coordinates_google(pref.destination)
+        if not dest_coords:
+            dest_coords = (31.6200, 74.8765)  # Default fallback
+        dest_lat, dest_lon = dest_coords
+        
+        # Get coordinates for source
+        source_coords = await get_coordinates_google(pref.source)
+        if not source_coords:
+            # Use a point 100km away as fallback
+            source_coords = (dest_lat - 0.5, dest_lon - 0.5)
+        source_lat, source_lon = source_coords
+        
+        # Calculate initial travel cost (source to destination)
+        initial_travel = await get_directions(source_lat, source_lon, dest_lat, dest_lon)
+        initial_travel_cost = calculate_transport_cost(
+            initial_travel["distance"], 
+            initial_travel["transport_mode"]
+        )
+        
+        # Parse interests
         interests = [i.strip() for i in pref.interests.split(',') if i.strip()] or ["sightseeing"]
 
-        # Keep track of all suggested places to avoid repetition
+        # Fetching places with enriched data
+        async def get_places_with_fallbacks(category: str, place_type: str = None):
+            results = await get_google_places(dest_lat, dest_lon, category, pref.budget, place_type)
+            if len(results) < 5:
+                osm_results = await get_osm_places(dest_lat, dest_lon, category)
+                results.extend(r for r in osm_results if not any(x["name"] == r["name"] for x in results))
+            if len(results) < 5 and place_type:
+                fsq_results = await get_foursquare_places(dest_lat, dest_lon, category)
+                results.extend(r for r in fsq_results if not any(x["name"] == r["name"] for x in results))
+            return results
+
+        # Fetch different types of places
+        all_attractions = await get_places_with_fallbacks("attraction", "tourist_attraction")
+        all_restaurants = await get_places_with_fallbacks("restaurant", "restaurant")
+        all_hotels = await get_places_with_fallbacks("hotel", "lodging")
+        
+        # Initialize tracking variables
+        interest_activities = {}
         used_attractions = set()
         used_restaurants = set()
         used_activities = set()
         used_hotels = set()
-
-        # Enhanced place fetcher with fallbacks
-        async def get_places_with_fallbacks(category: str, place_type: str = None) -> list:
-            """Get places from multiple sources with fallback logic"""
-            # Try Google first
-            results = await get_google_places(lat, lon, category, pref.budget, place_type)
-            
-            # Fallback to OSM for broader results if needed
-            if len(results) < 5:  # Increased minimum to get more options
-                osm_results = await get_osm_places(lat, lon, category)
-                results.extend(x for x in osm_results if x not in results)
-            
-            # Final fallback to Foursquare for specific types
-            if len(results) < 5 and place_type:
-                fsq_results = await get_foursquare_places(lat, lon, place_type)
-                results.extend(x for x in fsq_results if x not in results)
-            
-            # Ensure unique results
-            return list(set(results))
-
-        # Initialize empty lists to store each day's data
+        
         days_list = []
-
-        # Fetch a larger pool of all options at once to select from
-        all_attractions_task = get_places_with_fallbacks("attraction", "tourist_attraction")
-        all_restaurants_task = get_places_with_fallbacks("restaurant", "restaurant")
-        all_hotels_task = get_places_with_fallbacks("hotel", "lodging")
+        total_cost = initial_travel_cost  # Start with initial travel cost
         
-        # Start fetching these right away
-        all_attractions_future = asyncio.create_task(all_attractions_task)
-        all_restaurants_future = asyncio.create_task(all_restaurants_task)
-        all_hotels_future = asyncio.create_task(all_hotels_task)
+        # Calculate hotel cost only once for the entire stay
+        # Select a hotel first
+        selected_hotel = all_hotels[:1] or [{"name": f"Stay in {pref.destination}", "place_id": "", "location": {"lat": dest_lat, "lng": dest_lon}}]
+        used_hotels.update(h["name"] for h in selected_hotel)
         
-        # Dictionary to store activity options by interest type
-        interest_activities = {}
-
-        # Generate each day's itinerary
+        # Get hotel details and calculate the total accommodation cost
+        hotel_total_cost = 0
+        if selected_hotel:
+            hotel = selected_hotel[0]
+            if hotel["place_id"]:
+                details = await get_place_details(hotel["place_id"])
+                if details:
+                    hotel["details"] = details
+                    hotel["price_level"] = details.get("price_level", hotel.get("price_level", 0))
+            hotel_total_cost = calculate_place_cost(hotel, "hotel", budget_level) * pref.duration
+        
+        # Daily accommodation cost
+        daily_hotel_cost = hotel_total_cost / pref.duration if pref.duration > 0 else 0
+        
+        # Build itinerary day by day
         for day in range(1, pref.duration + 1):
+            # Get specific interest for this day
             interest = interests[(day - 1) % len(interests)]
             
-            # Fetch activities for this interest if not already fetched
+            # Fetch interest-specific activities if not already fetched
             if interest not in interest_activities:
                 interest_activities[interest] = await get_places_with_fallbacks(interest)
             
-            # Get all other options
-            if day == 1:
-                # Wait for the futures on the first day
-                all_attractions = await all_attractions_future
-                all_restaurants = await all_restaurants_future
-                all_hotels = await all_hotels_future
+            # Filter out already used places
+            available_attractions = [a for a in all_attractions if a["name"] not in used_attractions]
+            available_restaurants = [r for r in all_restaurants if r["name"] not in used_restaurants]
+            available_activities = [a for a in interest_activities.get(interest, []) if a["name"] not in used_activities]
             
-            # Filter out previously used options
-            available_attractions = [a for a in all_attractions if a not in used_attractions]
-            available_restaurants = [r for r in all_restaurants if r not in used_restaurants]
-            available_activities = [a for a in interest_activities[interest] if a not in used_activities]
-            available_hotels = [h for h in all_hotels if h not in used_hotels]
+            # Pick places for this day
+            day_attractions = available_attractions[:2] or [{"name": f"Explore {pref.destination}", "place_id": "", "location": {"lat": dest_lat, "lng": dest_lon}}]
+            day_restaurants = available_restaurants[:3] or [{"name": f"Local cuisine in {pref.destination}", "place_id": "", "location": {"lat": dest_lat, "lng": dest_lon}}]
+            day_activities = available_activities[:2] or [{"name": f"{interest.capitalize()} activity", "place_id": "", "location": {"lat": dest_lat, "lng": dest_lon}}]
             
-            # If we're running low on options, fetch more
-            if len(available_attractions) < 3:
-                more_attractions = await get_places_with_fallbacks(f"attraction in {pref.destination}", "tourist_attraction")
-                available_attractions.extend([a for a in more_attractions if a not in used_attractions and a not in available_attractions])
+            # Track used places
+            used_attractions.update(a["name"] for a in day_attractions)
+            used_restaurants.update(r["name"] for r in day_restaurants)
+            used_activities.update(a["name"] for a in day_activities)
+            
+            # Calculate costs with API data when available
+            attraction_costs = []
+            restaurant_costs = []
+            activity_costs = []
+            
+            # Calculate attraction costs
+            for attraction in day_attractions:
+                if attraction["place_id"]:
+                    details = await get_place_details(attraction["place_id"])
+                    if details:
+                        attraction["details"] = details
+                        attraction["price_level"] = details.get("price_level", attraction.get("price_level", 0))
+                cost = calculate_place_cost(attraction, "attraction", budget_level)
+                attraction_costs.append(cost)
+            
+            # Calculate restaurant costs
+            for restaurant in day_restaurants:
+                if restaurant["place_id"]:
+                    details = await get_place_details(restaurant["place_id"])
+                    if details:
+                        restaurant["details"] = details
+                        restaurant["price_level"] = details.get("price_level", restaurant.get("price_level", 0))
+                cost = calculate_place_cost(restaurant, "restaurant", budget_level)
+                restaurant_costs.append(cost)
+            
+            # Calculate activity costs
+            for activity in day_activities:
+                if activity["place_id"]:
+                    details = await get_place_details(activity["place_id"])
+                    if details:
+                        activity["details"] = details
+                        activity["price_level"] = details.get("price_level", activity.get("price_level", 0))
+                cost = calculate_place_cost(activity, "activity", budget_level)
+                activity_costs.append(cost)
+            
+            # Calculate local transportation costs for the day
+            # Start with hotel location
+            current_lat = selected_hotel[0]["location"]["lat"] if selected_hotel else dest_lat
+            current_lng = selected_hotel[0]["location"]["lng"] if selected_hotel else dest_lon
+            
+            daily_transport_distance = 0
+            # Add travel to each attraction
+            for place in day_attractions + day_activities:
+                target_lat = place["location"]["lat"] if place["location"] else dest_lat
+                target_lng = place["location"]["lng"] if place["location"] else dest_lon
                 
-            if len(available_restaurants) < 3:
-                more_restaurants = await get_places_with_fallbacks(f"restaurant in {pref.destination}", "restaurant")
-                available_restaurants.extend([r for r in more_restaurants if r not in used_restaurants and r not in available_restaurants])
+                directions = await get_directions(
+                    current_lat, current_lng, 
+                    target_lat, target_lng
+                )
                 
-            if len(available_activities) < 2:
-                more_activities = await get_places_with_fallbacks(f"{interest} in {pref.destination}")
-                available_activities.extend([a for a in more_activities if a not in used_activities and a not in available_activities])
-                
-            if len(available_hotels) < 2:
-                more_hotels = await get_places_with_fallbacks(f"hotel in {pref.destination}", "lodging")
-                available_hotels.extend([h for h in more_hotels if h not in used_hotels and h not in available_hotels])
+                daily_transport_distance += directions["distance"]
+                current_lat, current_lng = target_lat, target_lng
             
-            # Select unique places for this day
-            day_attractions = available_attractions[:3]
-            day_restaurants = available_restaurants[:3]
-            day_activities = available_activities[:2]
-            day_hotels = available_hotels[:2]
+            # Return to hotel at the end of the day
+            hotel_lat = selected_hotel[0]["location"]["lat"] if selected_hotel else dest_lat
+            hotel_lng = selected_hotel[0]["location"]["lng"] if selected_hotel else dest_lon
             
-            # Add to used sets to avoid repetition
-            used_attractions.update(day_attractions)
-            used_restaurants.update(day_restaurants)
-            used_activities.update(day_activities)
-            used_hotels.update(day_hotels)
+            return_directions = await get_directions(
+                current_lat, current_lng, 
+                hotel_lat, hotel_lng
+            )
             
-            # Fallback options if we don't have enough unique places
-            if not day_attractions:
-                day_attractions = [f"Explore {pref.destination} downtown area"]
-            if not day_restaurants:
-                day_restaurants = [f"Local cuisine in {pref.destination}"]
-            if not day_activities:
-                day_activities = [f"{interest.capitalize()} activity in {pref.destination}"]
-            if not day_hotels:
-                day_hotels = [f"Accommodation in {pref.destination}"]
+            daily_transport_distance += return_directions["distance"]
             
-            # Create a day entry according to our Pydantic model
+            # Calculate local transport cost
+            local_transport_cost = calculate_transport_cost(daily_transport_distance, "driving")
+            
+            # Daily totals
+            day_attractions_cost = sum(attraction_costs)
+            day_restaurants_cost = sum(restaurant_costs)
+            day_activities_cost = sum(activity_costs)
+            
+            # Total for this day
+            day_total = day_attractions_cost + day_restaurants_cost + day_activities_cost + daily_hotel_cost + local_transport_cost
+            
+            # Build day entry with detailed cost breakdown
             day_entry = ItineraryDay(
                 day=f"Day {day}",
-                attractions=day_attractions,
-                dining=day_restaurants,
-                activities=day_activities,
-                hotels=day_hotels
+                attractions=[a["name"] for a in day_attractions],
+                dining=[r["name"] for r in day_restaurants],
+                activities=[a["name"] for a in day_activities],
+                hotels=[h["name"] for h in selected_hotel],  # Use the same hotel for all days
+                estimated_cost=round(day_total, 2),
+                cost_breakdown={
+                    "attractions": round(day_attractions_cost, 2),
+                    "dining": round(day_restaurants_cost, 2),
+                    "activities": round(day_activities_cost, 2),
+                    "accommodation": round(daily_hotel_cost, 2),  # Hotel cost is evenly distributed
+                    "local_transport": round(local_transport_cost, 2)
+                },
+                travel_cost=round(initial_travel_cost, 2) if day == 1 else 0,  # Only include initial travel cost on day 1
+                travel_distance=round(initial_travel["distance"], 2) if day == 1 else 0,
+                local_travel_distance=round(daily_transport_distance, 2)
             )
             
             days_list.append(day_entry)
-
-        # Build the structured response according to our Pydantic model
+            total_cost += day_total - (daily_hotel_cost if day > 1 else 0)  # Avoid double-counting hotel costs
+        
+        # Create full itinerary response
         itinerary = ItineraryResponse(
             destination=pref.destination,
             duration=pref.duration,
-            days=days_list
+            days=days_list,
+            total_budget=round(total_cost, 2),
+            budget_breakdown={
+                "accommodation": round(hotel_total_cost, 2),  # Use the total hotel cost here
+                "food": round(sum(day.cost_breakdown["dining"] for day in days_list), 2),
+                "attractions": round(sum(day.cost_breakdown["attractions"] for day in days_list), 2),
+                "activities": round(sum(day.cost_breakdown["activities"] for day in days_list), 2),
+                "transportation": round(initial_travel_cost + sum(day.cost_breakdown["local_transport"] for day in days_list), 2)
+            }
         )
-
+        
         return itinerary
 
     except Exception as e:
         logger.error(f"Error generating itinerary: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Itinerary generation failed: {str(e)}")
-    # except Exception as e:
-    #     logger.error(f"Error generating itinerary: {str(e)}", exc_info=True)
-    #     raise HTTPException(status_code=500, detail="Itinerary generation failed")
-
-    # except Exception as e:
-    #     print(f"Error generating itinerary: {str(e)}")
-    #     raise HTTPException(status_code=500, detail="Itinerary generation failed")
-

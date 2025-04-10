@@ -26,15 +26,114 @@
             font-weight: bold;
             color: #3498db;
         }
+        .budget {
+            background-color: #eaf7ea;
+            border: 1px solid #c7eac7;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .travel-info {
+            background-color: #e6f0ff;
+            border: 1px solid #b3d1ff;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .cost-breakdown {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #c7eac7;
+        }
+        .cost-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+        }
     </style>
 </head>
 <body>
     <h1>Trip to {{ itinerary.destination }}</h1>
     <p><strong>Duration:</strong> {{ itinerary.duration }} days</p>
+    
+    <!-- Total distance information (from source to destination) -->
+    <div class="travel-info">
+        <strong>Total Travel:</strong> {{ itinerary.days[0].travel_distance }} km from {{ source }} to {{ itinerary.destination }}
+    </div>
+    
+    <div class="budget">
+        <strong>Total Estimated Budget:</strong> ₹{{ itinerary.total_budget }}
+        
+        <!-- Overall budget breakdown if available -->
+        {% if itinerary.budget_breakdown %}
+        <div class="cost-breakdown">
+            <div class="cost-item">
+                <span>Accommodation:</span>
+                <span>₹{{ itinerary.budget_breakdown.accommodation }}</span>
+            </div>
+            <div class="cost-item">
+                <span>Food:</span>
+                <span>₹{{ itinerary.budget_breakdown.food }}</span>
+            </div>
+            <div class="cost-item">
+                <span>Attractions:</span>
+                <span>₹{{ itinerary.budget_breakdown.attractions }}</span>
+            </div>
+            <div class="cost-item">
+                <span>Activities:</span>
+                <span>₹{{ itinerary.budget_breakdown.activities }}</span>
+            </div>
+            <div class="cost-item">
+                <span>Transportation:</span>
+                <span>₹{{ itinerary.budget_breakdown.transportation }}</span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
 
     {% for day in itinerary.days %}
     <div class="day">
         <h2>{{ day.day }}</h2>
+
+        <div class="budget">
+            <strong>Day's Estimated Cost:</strong> ₹{{ day.estimated_cost }}
+            
+            <!-- Show transportation details -->
+            <div class="travel-info">
+                {% if day.travel_cost > 0 %}
+                <p><strong>Main Travel:</strong> {{ day.travel_distance }} km (₹{{ day.travel_cost }})</p>
+                {% endif %}
+                
+                <p><strong>Local Travel:</strong> {{ day.local_travel_distance }} km 
+                   (₹{{ day.cost_breakdown.local_transport if day.cost_breakdown else (day.local_travel_distance * 10) }})</p>
+            </div>
+            
+            <!-- Day's cost breakdown if available -->
+            {% if day.cost_breakdown %}
+            <div class="cost-breakdown">
+                <div class="cost-item">
+                    <span>Attractions:</span>
+                    <span>₹{{ day.cost_breakdown.attractions }}</span>
+                </div>
+                <div class="cost-item">
+                    <span>Dining:</span>
+                    <span>₹{{ day.cost_breakdown.dining }}</span>
+                </div>
+                <div class="cost-item">
+                    <span>Activities:</span>
+                    <span>₹{{ day.cost_breakdown.activities }}</span>
+                </div>
+                <div class="cost-item">
+                    <span>Accommodation:</span>
+                    <span>₹{{ day.cost_breakdown.accommodation }}</span>
+                </div>
+                <div class="cost-item">
+                    <span>Local Transport:</span>
+                    <span>₹{{ day.cost_breakdown.local_transport }}</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
         
         <div class="plan-item">
             <span class="category">Attractions:</span>

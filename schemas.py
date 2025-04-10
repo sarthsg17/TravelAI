@@ -3,13 +3,20 @@ from typing import List
 from pydantic import BaseModel
 
 class ItineraryDay(BaseModel):
-    day: str                   # e.g., "Day 1"
-    attractions: List[str]     # e.g., ["Eiffel Tower", "Louvre"]
-    dining: List[str]         # e.g., ["Le Jules Verne"]
-    activities: List[str]      # e.g., ["Boat Tour"]
-    hotels: List[str]         # e.g., ["Hotel Ritz Paris"]
+    day: str
+    attractions: List[str]
+    dining: List[str]
+    activities: List[str]
+    hotels: List[str]
+    estimated_cost: float
+    cost_breakdown: dict[str, float]  # New field
+    travel_cost: float
+    travel_distance: float
+    local_travel_distance: float  # New field
 
 class ItineraryResponse(BaseModel):
-    destination: str          # e.g., "Paris, France"
-    duration: int             # e.g., 5 (days)
-    days: List[ItineraryDay]   # List of daily itineraries
+    destination: str
+    duration: int
+    days: List[ItineraryDay]
+    total_budget: float
+    budget_breakdown: dict[str, float]  # New field
