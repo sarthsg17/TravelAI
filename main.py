@@ -22,7 +22,12 @@ app.include_router(router)
 
 @app.get("/")
 async def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/form")
+async def show_form(request: Request):
     return templates.TemplateResponse("form.html", {"request": request})
+
 
 @app.on_event("startup")
 async def startup():

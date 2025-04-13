@@ -1,78 +1,144 @@
-async function loadItinerary() {
-    const container = document.getElementById("itinerary-container");
-    
-    try {
-        // Show loading state
-        container.innerHTML = `
-            <div class="loading">
-                <div class="spinner"></div>
-                <p>Creating your perfect travel plan...</p>
-            </div>`;
-        
-        // Get user ID from URL
-        const pathParts = window.location.pathname.split('/').filter(part => part !== '');
-        const userId = pathParts[pathParts.length - 1];
-        
-        if (!userId || isNaN(userId)) {
-            throw new Error("Invalid trip ID");
-        }
-        
-        // Fetch itinerary data
-        const response = await fetch(`/generate-itinerary/${userId}`);
-        
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => null);
-            throw new Error(errorData?.detail || "Failed to load itinerary");
-        }
-        
-        const itinerary = await response.json();
-        
-        // Update header
-        document.getElementById("destination-header").textContent = 
-            `Trip to ${itinerary.destination}`;
-        document.getElementById("trip-duration").textContent = 
-            `${itinerary.duration} day${itinerary.duration > 1 ? 's' : ''} itinerary`;
-        
-        // Build itinerary HTML using the new structure with "days" instead of "route"
-        let html = '';
-        itinerary.days.forEach(day => {
-            html += `
-            <div class="day-card">
-                <h2>${day.day}</h2>
-                
-                <div class="activity">
-                    <span class="type">Attractions</span>
-                    <div class="place">${day.attractions.join(', ')}</div>
-                </div>
-                
-                <div class="activity">
-                    <span class="type">Dining</span>
-                    <div class="place">${day.dining.join(', ')}</div>
-                </div>
-                
-                <div class="activity">
-                    <span class="type">Activities</span>
-                    <div class="place">${day.activities.join(', ')}</div>
-                </div>
-                
-                <div class="activity">
-                    <span class="type">Accommodations</span>
-                    <div class="place">${day.hotels.join(', ')}</div>
-                </div>
-            </div>`;
-        });
-        
-        container.innerHTML = html;
-        
-    } catch (error) {
-        console.error("Error:", error);
-        container.innerHTML = `
-            <div class="error">
-                <h3>Error loading itinerary</h3>
-                <p>${error.message}</p>
-                <button class="retry-btn" onclick="loadItinerary()">
-                    Try Again
-                </button>
-            </div>`;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Travel Planner Home</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    * {
+      box-sizing: border-box;
     }
-}
+
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e') center/cover no-repeat fixed;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      position: relative;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 0;
+    }
+
+    nav {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 40px;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(8px);
+    }
+
+    nav h2 {
+      font-size: 24px;
+      margin: 0;
+    }
+
+    nav a {
+      color: #fff;
+      text-decoration: none;
+      margin-left: 20px;
+      font-weight: 500;
+      transition: opacity 0.3s;
+    }
+
+    nav a:hover {
+      opacity: 0.8;
+    }
+
+    .card {
+      position: relative;
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 600px;
+      width: 90%;
+      margin: 100px auto;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      text-align: center;
+      animation: fadeIn 1s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 20px;
+    }
+
+    p {
+      font-size: 18px;
+      margin-bottom: 30px;
+      color: #f0f0f0;
+    }
+
+    .start-btn {
+      padding: 14px 30px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(to right, #6a11cb, #2575fc);
+      color: white;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .start-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    footer {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.4);
+      font-size: 14px;
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <h2><i class="fas fa-globe"></i> Travel Planner</h2>
+    <div>
+      <a href="/">Home</a>
+      <a href="/form">Plan Trip</a>
+      <a href="#">About</a>
+    </div>
+  </nav>
+
+  <div class="card">
+    <h1><i class="fas fa-globe"></i> Welcome to Travel Planner</h1>
+    <p>Enter your preferences and receive a personalized itinerary with real-time insights and budget estimates powered by Google and Foursquare APIs.</p>
+    <a class="start-btn" href="/form"><i class="fas fa-play"></i> Get Started</a>
+  </div>
+
+  <footer>
+    &copy; 2025 Travel Planner. All rights reserved.
+  </footer>
+</body>
+</html>
