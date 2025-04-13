@@ -243,8 +243,6 @@ async def submit_preferences(
     duration: int = Form(...),
     budget: str = Form(...),
     interests: str = Form(...),
-    halal: Optional[bool] = Form(False),
-    vegetarian: Optional[bool] = Form(False),
     travel_date: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
@@ -257,8 +255,6 @@ async def submit_preferences(
             duration=duration,
             budget=budget_int,
             interests=interests,
-            halal=halal,
-            vegetarian=vegetarian,
             travel_date=travel_date
         )
 

@@ -1,176 +1,205 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Your Itinerary</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .day {
-            margin-bottom: 2rem;
-            border: 1px solid #ddd;
-            padding: 1rem;
-            border-radius: 8px;
-            background-color: #f9f9f9;
-        }
-        .plan-item {
-            margin: 0.5rem 0;
-        }
-        h1, h2 {
-            color: #2c3e50;
-        }
-        .category {
-            font-weight: bold;
-            color: #3498db;
-        }
-        .budget {
-            background-color: #eaf7ea;
-            border: 1px solid #c7eac7;
-            padding: 10px;
-            margin-bottom: 20px;
-            border-radius: 5px;
-        }
-        .travel-info {
-            background-color: #e6f0ff;
-            border: 1px solid #b3d1ff;
-            padding: 10px;
-            margin-bottom: 20px;
-            border-radius: 5px;
-        }
-        .cost-breakdown {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px dashed #c7eac7;
-        }
-        .cost-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 3px 0;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trip Itinerary</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(to right, #e0f7fa, #fff);
+      color: #333;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+      color: #2c3e50;
+    }
+    .summary-box {
+      background: #fefefe;
+      border-left: 5px solid #3498db;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    .summary-box strong {
+      color: #2c3e50;
+    }
+    .day-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 40px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      background-color: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .day-table th, .day-table td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+    }
+    .day-table th {
+      background-color: #3498db;
+      color: #fff;
+    }
+    .day-title {
+      background-color: #ecf0f1;
+      padding: 12px;
+      font-weight: bold;
+      font-size: 18px;
+      color: #2c3e50;
+      border-radius: 10px 10px 0 0;
+    }
+    .icon-label i {
+      margin-right: 6px;
+      color: #2980b9;
+    }
+    .cost-table {
+      margin-top: 10px;
+    }
+    .cost-table td {
+      padding: 6px 0;
+    }
+    .accordion {
+      cursor: pointer;
+      padding: 15px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      text-align: left;
+      outline: none;
+      font-size: 18px;
+      transition: 0.3s;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+    .accordion:hover {
+      background-color: #2980b9;
+    }
+    .panel {
+      padding: 0 0 15px 0;
+      display: none;
+    }
+    @media print {
+    body {
+      font-size: 10px; /* Increase font size for print */
+    }
+
+    h1 {
+      font-size: 20px; /* Larger title size for printing */
+    }
+
+    .summary-box {
+      font-size: 14px; /* Larger font for the summary box */
+    }
+
+    .day-table th, .day-table td {
+      font-size: 10px; /* Increase font size in tables */
+    }
+
+    .accordion {
+      font-size: 16px; /* Larger font for accordion buttons */
+    }
+
+    .panel {
+      font-size: 10px; /* Font size for accordion panel content */
+    }
+  }
+
+</style>
 </head>
 <body>
-    <h1>Trip to {{ itinerary.destination }}</h1>
-    <p><strong>Duration:</strong> {{ itinerary.duration }} days</p>
-    
-    <!-- Total distance information (from source to destination) -->
-    <div class="travel-info">
-        <strong>Total Travel:</strong> {{ itinerary.days[0].travel_distance }} km from {{ source }} to {{ itinerary.destination }}
+  <div class="container">
+    <h1><i class="fas fa-route"></i> Your Travel Itinerary</h1>
+    <button class="download-btn" onclick="window.print()" style="padding: 10px 20px; font-size: 16px; background-color: #3498db; color: white; border: none; border-radius: 5px;">Download PDF</button>
+
+    <div class="summary-box">
+      <p><strong>Destination:</strong> {{ itinerary.destination }}</p>
+      <p><strong>Duration:</strong> {{ itinerary.duration }} days</p>
+      <p><strong>Total Travel:</strong> {{ itinerary.days[0].travel_distance }} km from {{ source }}</p>
+      <p><strong>Total Estimated Budget:</strong> ₹{{ itinerary.total_budget }}</p>
     </div>
-    
-    <div class="budget">
-        <strong>Total Estimated Budget:</strong> ₹{{ itinerary.total_budget }}
-        
-        <!-- Overall budget breakdown if available -->
-        {% if itinerary.budget_breakdown %}
-        <div class="cost-breakdown">
-            <div class="cost-item">
-                <span>Accommodation:</span>
-                <span>₹{{ itinerary.budget_breakdown.accommodation }}</span>
-            </div>
-            <div class="cost-item">
-                <span>Food:</span>
-                <span>₹{{ itinerary.budget_breakdown.food }}</span>
-            </div>
-            <div class="cost-item">
-                <span>Attractions:</span>
-                <span>₹{{ itinerary.budget_breakdown.attractions }}</span>
-            </div>
-            <div class="cost-item">
-                <span>Activities:</span>
-                <span>₹{{ itinerary.budget_breakdown.activities }}</span>
-            </div>
-            <div class="cost-item">
-                <span>Transportation:</span>
-                <span>₹{{ itinerary.budget_breakdown.transportation }}</span>
-            </div>
-        </div>
-        {% endif %}
-    </div>
+
+    {% if itinerary.budget_breakdown %}
+    <table class="day-table cost-table">
+      <thead>
+        <tr>
+          <th colspan="2">Budget Breakdown</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>🏨 Accommodation</td><td>₹{{ itinerary.budget_breakdown.accommodation }}</td></tr>
+        <tr><td>🍽️ Food</td><td>₹{{ itinerary.budget_breakdown.food }}</td></tr>
+        <tr><td>🎡 Attractions</td><td>₹{{ itinerary.budget_breakdown.attractions }}</td></tr>
+        <tr><td>🎯 Activities</td><td>₹{{ itinerary.budget_breakdown.activities }}</td></tr>
+        <tr><td>🚗 Transportation</td><td>₹{{ itinerary.budget_breakdown.transportation }}</td></tr>
+      </tbody>
+    </table>
+    {% endif %}
 
     {% for day in itinerary.days %}
-    <div class="day">
-        <h2>{{ day.day }}</h2>
+    <button class="accordion">📅 {{ day.day }} - ₹{{ day.estimated_cost }}</button>
+    <div class="panel">
+      <table class="day-table">
+        <thead>
+          <tr><th colspan="2">Details</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="icon-label"><i class="fas fa-road"></i> Travel</td><td>{{ day.travel_distance }} km (₹{{ day.travel_cost }})</td></tr>
+          <tr><td class="icon-label"><i class="fas fa-taxi"></i> Local Travel</td><td>{{ day.local_travel_distance }} km</td></tr>
+          <tr><td class="icon-label"><i class="fas fa-landmark"></i> Attractions</td>
+            <td><ul>{% for item in day.attractions %}<li>{{ item }}</li>{% endfor %}</ul></td></tr>
+          <tr><td class="icon-label"><i class="fas fa-utensils"></i> Dining</td>
+            <td><ul>{% for item in day.dining %}<li>{{ item }}</li>{% endfor %}</ul></td></tr>
+          <tr><td class="icon-label"><i class="fas fa-running"></i> Activities</td>
+            <td><ul>{% for item in day.activities %}<li>{{ item }}</li>{% endfor %}</ul></td></tr>
+          <tr><td class="icon-label"><i class="fas fa-hotel"></i> Hotels</td>
+            <td><ul>{% for item in day.hotels %}<li>{{ item }}</li>{% endfor %}</ul></td></tr>
+        </tbody>
+      </table>
 
-        <div class="budget">
-            <strong>Day's Estimated Cost:</strong> ₹{{ day.estimated_cost }}
-            
-            <!-- Show transportation details -->
-            <div class="travel-info">
-                {% if day.travel_cost > 0 %}
-                <p><strong>Main Travel:</strong> {{ day.travel_distance }} km (₹{{ day.travel_cost }})</p>
-                {% endif %}
-                
-                <p><strong>Local Travel:</strong> {{ day.local_travel_distance }} km 
-                   (₹{{ day.cost_breakdown.local_transport if day.cost_breakdown else (day.local_travel_distance * 10) }})</p>
-            </div>
-            
-            <!-- Day's cost breakdown if available -->
-            {% if day.cost_breakdown %}
-            <div class="cost-breakdown">
-                <div class="cost-item">
-                    <span>Attractions:</span>
-                    <span>₹{{ day.cost_breakdown.attractions }}</span>
-                </div>
-                <div class="cost-item">
-                    <span>Dining:</span>
-                    <span>₹{{ day.cost_breakdown.dining }}</span>
-                </div>
-                <div class="cost-item">
-                    <span>Activities:</span>
-                    <span>₹{{ day.cost_breakdown.activities }}</span>
-                </div>
-                <div class="cost-item">
-                    <span>Accommodation:</span>
-                    <span>₹{{ day.cost_breakdown.accommodation }}</span>
-                </div>
-                <div class="cost-item">
-                    <span>Local Transport:</span>
-                    <span>₹{{ day.cost_breakdown.local_transport }}</span>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-        
-        <div class="plan-item">
-            <span class="category">Attractions:</span>
-            <ul>
-                {% for attraction in day.attractions %}
-                <li>{{ attraction }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        
-        <div class="plan-item">
-            <span class="category">Dining Options:</span>
-            <ul>
-                {% for dining in day.dining %}
-                <li>{{ dining }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        
-        <div class="plan-item">
-            <span class="category">Activities:</span>
-            <ul>
-                {% for activity in day.activities %}
-                <li>{{ activity }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        
-        <div class="plan-item">
-            <span class="category">Accommodations:</span>
-            <ul>
-                {% for hotel in day.hotels %}
-                <li>{{ hotel }}</li>
-                {% endfor %}
-            </ul>
-        </div>
+      {% if day.cost_breakdown %}
+      <table class="day-table cost-table">
+        <thead>
+          <tr><th colspan="2">Day's Cost Breakdown</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>🎡 Attractions</td><td>₹{{ day.cost_breakdown.attractions }}</td></tr>
+          <tr><td>🍽️ Dining</td><td>₹{{ day.cost_breakdown.dining }}</td></tr>
+          <tr><td>🎯 Activities</td><td>₹{{ day.cost_breakdown.activities }}</td></tr>
+          <tr><td>🏨 Accommodation</td><td>₹{{ day.cost_breakdown.accommodation }}</td></tr>
+          <tr><td>🚕 Local Transport</td><td>₹{{ day.cost_breakdown.local_transport }}</td></tr>
+        </tbody>
+      </table>
+      {% endif %}
     </div>
     {% endfor %}
+  </div>
+
+  <script>
+    const acc = document.querySelectorAll(".accordion");
+    acc.forEach(btn => {
+      btn.addEventListener("click", function () {
+        this.classList.toggle("active");
+        const panel = this.nextElementSibling;
+        if (panel.style.display === "block") {
+          panel.style.display = "none";
+        } else {
+          panel.style.display = "block";
+        }
+      });
+    });
+  </script>
 </body>
 </html>

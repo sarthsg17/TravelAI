@@ -11,5 +11,3 @@ class UserPreference(Base):
     budget = Column(Integer, nullable=False)
     interests = Column(String, nullable=False)
     travel_date = Column(String, nullable=True)
-    halal = Column(Integer, default=0)
-    vegetarian = Column(Integer, default=0)
