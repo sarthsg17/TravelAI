@@ -1,144 +1,147 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Travel Planner Home</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Travel Planner</title>
   <style>
     * {
+      margin: 0;
+      padding: 0;
       box-sizing: border-box;
     }
 
     body {
-      margin: 0;
-      font-family: 'Poppins', sans-serif;
-      background: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e') center/cover no-repeat fixed;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #111;
       color: white;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-      position: relative;
-    }
-
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.6);
-      z-index: 0;
     }
 
     nav {
-      position: relative;
-      z-index: 2;
+      background-color: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      color: white;
+      padding: 15px 30px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 20px 40px;
-      background: rgba(0, 0, 0, 0.3);
-      backdrop-filter: blur(8px);
+      position: fixed;
+      top: 0;
+      width: 100%;
+      z-index: 1000;
     }
 
-    nav h2 {
-      font-size: 24px;
-      margin: 0;
+    .logo {
+      background-color: rgba(255, 255, 255, 0.2);
+      padding: 8px 16px;
+      border-radius: 25px;
+      font-weight: bold;
+      font-size: 1.3rem;
+      display: flex;
+      align-items: center;
     }
 
-    nav a {
-      color: #fff;
+    .menu a {
+      color: white;
       text-decoration: none;
       margin-left: 20px;
-      font-weight: 500;
-      transition: opacity 0.3s;
+      font-size: 1rem;
+      padding: 8px 16px;
+      border-radius: 20px;
+      background-color: rgba(255, 255, 255, 0.1);
+      transition: background 0.3s ease, color 0.3s ease;
     }
 
-    nav a:hover {
-      opacity: 0.8;
+    .menu a:hover {
+      background-color: #00bfff;
+      color: black;
     }
 
-    .card {
-      position: relative;
-      z-index: 1;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
+    .hero {
+      height: 100vh;
+      background-image: url('static/background.jpg'); /* Replace if needed */
+      background-size: cover;
+      background-position: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding-top: 80px;
+    }
+
+    .welcome-box {
+      background: rgba(0, 0, 0, 0.5);
       border-radius: 20px;
       padding: 40px;
       max-width: 600px;
-      width: 90%;
-      margin: 100px auto;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
       text-align: center;
-      animation: fadeIn 1s ease forwards;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
+    .welcome-box h1 {
+      font-size: 2rem;
+      margin-bottom: 15px;
     }
 
-    h1 {
-      font-size: 32px;
-      margin-bottom: 20px;
-    }
-
-    p {
-      font-size: 18px;
+    .welcome-box p {
+      font-size: 1rem;
       margin-bottom: 30px;
-      color: #f0f0f0;
     }
 
-    .start-btn {
-      padding: 14px 30px;
-      font-size: 16px;
-      font-weight: bold;
-      border: none;
-      border-radius: 12px;
-      background: linear-gradient(to right, #6a11cb, #2575fc);
+    .get-started-btn {
+      background-color: #6a5acd;
       color: white;
+      padding: 12px 30px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 30px;
       cursor: pointer;
-      text-decoration: none;
-      transition: all 0.3s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
+      transition: background 0.3s ease;
     }
 
-    .start-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+    .get-started-btn:hover {
+      background-color: #483d8b;
     }
 
     footer {
-      position: relative;
-      z-index: 1;
-      text-align: center;
+      background-color: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
       padding: 20px;
-      background: rgba(0, 0, 0, 0.4);
-      font-size: 14px;
-      margin-top: auto;
+      font-size: 0.9rem;
+      color: white;
+      text-align: center;
+      position: relative;
+      width: 100%;
     }
   </style>
 </head>
 <body>
+
+  <!-- Navigation Bar -->
   <nav>
-    <h2><i class="fas fa-globe"></i> Travel Planner</h2>
-    <div>
-      <a href="/">Home</a>
+    <div class="logo">🌐 Travel Planner</div>
+    <div class="menu">
+      <a href="#">Home</a>
       <a href="/form">Plan Trip</a>
       <a href="#">About</a>
     </div>
   </nav>
 
-  <div class="card">
-    <h1><i class="fas fa-globe"></i> Welcome to Travel Planner</h1>
-    <p>Enter your preferences and receive a personalized itinerary with real-time insights and budget estimates powered by Google and Foursquare APIs.</p>
-    <a class="start-btn" href="/form"><i class="fas fa-play"></i> Get Started</a>
+  <!-- Hero Section -->
+  <div class="hero">
+    <div class="welcome-box">
+      <h1>🌐 Welcome to Travel Planner</h1>
+      <p>
+        Enter your preferences and receive a personalized itinerary with real-time insights and budget estimates
+        powered by Google and Foursquare APIs.
+      </p>
+      <button class="get-started-btn" onclick="location.href='/form'">Get Started</button>
+    </div>
   </div>
 
+  <!-- Footer -->
   <footer>
-    &copy; 2025 Travel Planner. All rights reserved.
+    © 2025 Travel Planner. All rights reserved.
   </footer>
+
 </body>
 </html>
