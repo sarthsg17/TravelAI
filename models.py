@@ -8,6 +8,5 @@ class UserPreference(Base):
     source = Column(String, nullable=False)
     destination = Column(String, nullable=False)
     duration = Column(Integer, nullable=False)
-    budget = Column(Integer, nullable=False)
     interests = Column(String, nullable=False)
     travel_date = Column(String, nullable=True)

@@ -241,19 +241,16 @@ async def submit_preferences(
     source: str = Form(...),
     destination: str = Form(...),
     duration: int = Form(...),
-    budget: str = Form(...),
     interests: str = Form(...),
     travel_date: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        budget_int = int(budget)
 
         pref = UserPreference(
             source=source,
             destination=destination,
             duration=duration,
-            budget=budget_int,
             interests=interests,
             travel_date=travel_date
         )
@@ -301,7 +298,7 @@ async def generate_itinerary(user_id: int, db: AsyncSession = Depends(get_db)):
             raise HTTPException(status_code=404, detail="User not found")
 
         # Calculate budget level (1-5)
-        budget_level = min(5, max(1, pref.budget // 5000))
+        budget_level = 2
         
         # Get coordinates for destination
         dest_coords = await get_coordinates_google(pref.destination)
@@ -328,7 +325,7 @@ async def generate_itinerary(user_id: int, db: AsyncSession = Depends(get_db)):
 
         # Fetching places with enriched data
         async def get_places_with_fallbacks(category: str, place_type: str = None):
-            results = await get_google_places(dest_lat, dest_lon, category, pref.budget, place_type)
+            results = await get_google_places(dest_lat, dest_lon, category, place_type)
             if len(results) < 5:
                 osm_results = await get_osm_places(dest_lat, dest_lon, category)
                 results.extend(r for r in osm_results if not any(x["name"] == r["name"] for x in results))
