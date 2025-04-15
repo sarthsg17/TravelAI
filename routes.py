@@ -298,7 +298,7 @@ async def generate_itinerary(user_id: int, db: AsyncSession = Depends(get_db)):
             raise HTTPException(status_code=404, detail="User not found")
 
         # Calculate budget level (1-5)
-        budget_level = 2
+        budget_level = 1
         
         # Get coordinates for destination
         dest_coords = await get_coordinates_google(pref.destination)
