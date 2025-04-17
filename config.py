@@ -5,9 +5,14 @@ from sqlalchemy.orm import sessionmaker
 import os
 DATABASE_URL = "sqlite+aiosqlite:///./test.db"  # Removed sslmode
 
+
+# Use SQLite for Hugging Face deployment
+DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+
 # SQLAlchemy setup
 engine = create_async_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+
 
 
 # For dependency injection
