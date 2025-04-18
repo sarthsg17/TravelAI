@@ -33,27 +33,31 @@
    cd TravelAI
 Create and activate virtual environment:
 
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-venv\Scripts\activate     # Windows
+
+python -m venv venv  
+source venv/bin/activate  # Linux/Mac  
+venv\Scripts\activate     # Windows  
 Install dependencies:
 
-pip install -r requirements.txt
+
+pip install -r requirements.txt  
 ⚙️ Configuration
 Rename .env.example to .env
 
 Add your API keys:
-GOOGLE_API_KEY=your_google_maps_key
-FOURSQUARE_API_KEY=your_foursquare_key
-For production, update config.py with your database URI
+
+
+GOOGLE_API_KEY=your_google_maps_key  
+FOURSQUARE_API_KEY=your_foursquare_key  
+For production, update config.py with database URI
 
 🚀 Usage
-Start development server:
+Start server:
 
-uvicorn main:app --reload
-Access the web interface at:
-http://localhost:8000
+bash
+uvicorn main:app --reload  
+Access at: http://localhost:8000
+
 🔌 API Integrations
-Google Maps API for geolocation and routes
-
-Foursquare API for point-of-interest data
+• Google Maps API - Geolocation/Routes
+• Foursquare API - POI Data
