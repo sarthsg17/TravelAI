@@ -19,9 +19,7 @@ Planning the perfect trip is complex and time-consuming. TravelAI solves this by
 |---------|-------------|
 | **Smart Itinerary Generation** | Our AI engine crafts personalized plans based on your interests (adventure, relaxation, culture etc.), group size, and travel style |
 | **Dynamic Budgeting** | Get real-time cost estimates with breakdowns for accommodations, dining, activities, and transportation |
-| **Seamless Logistics** | Automatically optimized routes with travel times between locations and smart scheduling |
 | **Local Insights** | Curated recommendations from locals and travel experts through our Foursquare integration |
-| **Multi-Device Access** | Your itineraries sync across devices and are available offline |
 
 ## 🛠️ Technology Stack
 
