@@ -1,63 +1,76 @@
-# 🌐 TravelAI - Intelligent Travel Itinerary Planner
+# ✈️ TravelAI - Intelligent Travel Planning Platform
 
-## ✨ Features
-- **Personalized Itinerary Generation** based on user preferences
-- **Budget Estimation** with detailed cost breakdowns
-- **Day-by-Day Planning** including:
-  - 🏨 Accommodation options
-  - 🍽️ Restaurant recommendations
-  - 🏛️ Attraction suggestions
-  - 🚗 Transportation routes
-- **Interactive Web Interface** with responsive design
+**TravelAI revolutionizes trip planning by combining artificial intelligence with real-time travel data to create perfectly tailored itineraries.** Our system analyzes your preferences, budget, and travel dates to generate comprehensive day-by-day plans complete with attractions, dining options, and logistical routing.
 
-## 🛠 Tech Stack
-**Backend**:
-- Python 3.9+
-- FastAPI (Web Framework)
-- SQLAlchemy (ORM)
-- Uvicorn (ASGI Server)
+![TravelAI Interface Demo](static/demo.gif)
 
-**Frontend**:
-- HTML5, CSS3
-- Jinja2 Templates
-- Vanilla JavaScript
+## 🌟 Why TravelAI?
 
-**Database**:
-- SQLite (Development)
-- PostgreSQL (Production-ready)
+Planning the perfect trip is complex and time-consuming. TravelAI solves this by:
 
-## 📥 Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Diksha333/TravelAI.git
-   cd TravelAI
-Create and activate virtual environment:
+- **Saving hours of research** by automatically generating optimized itineraries
+- **Eliminating decision fatigue** with smart, personalized recommendations
+- **Preventing budget surprises** with accurate cost estimations
+- **Discovering hidden gems** through our advanced location algorithms
 
+## 🚀 Key Features
 
-python -m venv venv  
-source venv/bin/activate  # Linux/Mac  
-venv\Scripts\activate     # Windows  
-Install dependencies:
+| Feature | Description |
+|---------|-------------|
+| **Smart Itinerary Generation** | Our AI engine crafts personalized plans based on your interests (adventure, relaxation, culture etc.), group size, and travel style |
+| **Dynamic Budgeting** | Get real-time cost estimates with breakdowns for accommodations, dining, activities, and transportation |
+| **Seamless Logistics** | Automatically optimized routes with travel times between locations and smart scheduling |
+| **Local Insights** | Curated recommendations from locals and travel experts through our Foursquare integration |
+| **Multi-Device Access** | Your itineraries sync across devices and are available offline |
 
+## 🛠️ Technology Stack
 
-pip install -r requirements.txt  
-⚙️ Configuration
-Rename .env.example to .env
+**Backend Intelligence**:
+- **Python 3.9+**: Core application logic and data processing
+- **FastAPI**: High-performance web framework for building APIs
+- **SQLAlchemy 2.0**: Modern ORM for database interactions
+- **Uvicorn**: Lightning-fast ASGI server implementation
 
-Add your API keys:
+**Frontend Experience**:
+- **Jinja2 Templates**: Dynamic HTML rendering with clean separation of concerns
+- **Tailwind CSS**: Utility-first CSS framework for responsive designs
+- **Vanilla JavaScript**: Lightweight interactivity without framework overhead
 
+**Data Ecosystem**:
+- **Google Maps API**: Precise geolocation services and route optimization
+- **Foursquare Places API**: Comprehensive database of points-of-interest
+- **PostgreSQL**: Robust relational database for production environments
 
-GOOGLE_API_KEY=your_google_maps_key  
-FOURSQUARE_API_KEY=your_foursquare_key  
-For production, update config.py with database URI
+## ⚡ Getting Started
 
-🚀 Usage
-Start server:
+### Prerequisites
+- Python 3.9 or higher
+- Google Maps API key
+- Foursquare API credentials
 
-bash
-uvicorn main:app --reload  
-Access at: http://localhost:8000
+### Installation Guide
 
-🔌 API Integrations
-• Google Maps API - Geolocation/Routes
-• Foursquare API - POI Data
+```bash
+# Clone the repository
+git clone https://github.com/Diksha333/TravelAI.git
+cd TravelAI
+
+# Create virtual environment
+python -m venv .venv
+
+# Activate environment
+source .venv/bin/activate  # Linux/Mac
+.venv\Scripts\activate    # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment variables
+cp .env.example .env
+# Edit .env file with your API keys
+
+# Initialize database
+python create_tables.py
+
+# Launch application
+uvicorn main:app --reload
